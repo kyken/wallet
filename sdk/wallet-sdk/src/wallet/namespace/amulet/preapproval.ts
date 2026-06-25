@@ -11,6 +11,20 @@ import { SDKLogger } from '../../logger/logger.js'
 
 const EMPTY_COMMAND_RESULT = [null, []] as const
 
+type PreapprovalExerciseCommandResult =
+    | [
+          { ExerciseCommand: LedgerCommonSchemas['ExerciseCommand'] },
+          LedgerCommonSchemas['DisclosedContract'][],
+      ]
+    | typeof EMPTY_COMMAND_RESULT
+
+type RenewPreapprovalArgs = {
+    parties: PreapprovalParties
+    expiresAt: Date
+    inputUtxos?: string[]
+    synchronizerId?: string
+}
+
 export class PreapprovalNamespace {
     /**
      * Commands for managing transfer preapprovals. The return result can be used as an argument to pass to signing and execution of a transaction.
@@ -22,13 +36,10 @@ export class PreapprovalNamespace {
         }>
         cancel: (args: {
             parties: PreapprovalParties
-        }) => Promise<
-            | [
-                  { ExerciseCommand: LedgerCommonSchemas['ExerciseCommand'] },
-                  LedgerCommonSchemas['DisclosedContract'][],
-              ]
-            | typeof EMPTY_COMMAND_RESULT
-        >
+        }) => Promise<PreapprovalExerciseCommandResult>
+        renew: (
+            args: RenewPreapprovalArgs
+        ) => Promise<PreapprovalExerciseCommandResult>
     }
     private readonly ledger: LedgerNamespace
     private readonly logger: SDKLogger
@@ -88,6 +99,46 @@ export class PreapprovalNamespace {
 
                 return [{ ExerciseCommand: command }, disclosedContracts]
             },
+            renew: async (args) => {
+                const { parties, inputUtxos, expiresAt } = args
+                const preapprovalStatus = await this.fetchStatus(
+                    parties.receiver
+                )
+                const provider = parties?.provider ?? this.ctx.validatorParty
+                const synchronizerId =
+                    args.synchronizerId ??
+                    this.ctx.commonCtx.defaultSynchronizerId
+                if (!synchronizerId)
+                    this.ctx.commonCtx.error.throw({
+                        type: 'Unexpected',
+                        message: 'Cannot obtain synchronizer id',
+                    })
+
+                if (
+                    !preapprovalStatus ||
+                    !preapprovalStatus.contractId ||
+                    !preapprovalStatus.templateId
+                ) {
+                    this.ctx.commonCtx.logger.warn(
+                        'Cannot create renew command since the preapproval status data is incomplete'
+                    )
+                    return EMPTY_COMMAND_RESULT
+                }
+
+                const { contractId, templateId } = preapprovalStatus
+
+                const [command, disclosedContracts] =
+                    await this.ctx.amuletService.renewTransferPreapproval(
+                        contractId,
+                        templateId,
+                        provider,
+                        synchronizerId,
+                        expiresAt,
+                        inputUtxos
+                    )
+
+                return [{ ExerciseCommand: command }, disclosedContracts]
+            },
         }
     }
 
@@ -108,14 +159,8 @@ export class PreapprovalNamespace {
      * @param args.inputUtxos - Optional list of specific holding contract IDs to use as inputs
      * @returns A promise that resolves to the ledger submission result
      */
-    public async renew(args: {
-        parties: PreapprovalParties
-        expiresAt: Date
-        inputUtxos?: string[]
-        synchronizerId?: string
-    }) {
-        const { parties, inputUtxos, expiresAt } = args
-        const preapprovalStatus = await this.fetchStatus(parties.receiver)
+    public async renew(args: RenewPreapprovalArgs) {
+        const { parties } = args
         const provider = parties?.provider ?? this.ctx.validatorParty
         const synchronizerId =
             args.synchronizerId ?? this.ctx.commonCtx.defaultSynchronizerId
@@ -125,31 +170,13 @@ export class PreapprovalNamespace {
                 message: 'Cannot obtain synchronizer id',
             })
 
-        if (
-            !preapprovalStatus ||
-            !preapprovalStatus.contractId ||
-            !preapprovalStatus.templateId
-        ) {
-            this.ctx.commonCtx.logger.warn(
-                'Cannot create renew command since the preapproval status data is incomplete'
-            )
+        const [command, disclosedContracts] = await this.command.renew(args)
+        if (!command) {
             return EMPTY_COMMAND_RESULT
         }
 
-        const { contractId, templateId } = preapprovalStatus
-
-        const [command, disclosedContracts] =
-            await this.ctx.amuletService.renewTransferPreapproval(
-                contractId,
-                templateId,
-                provider,
-                synchronizerId,
-                expiresAt,
-                inputUtxos
-            )
-
         return await this.ledger.internal.submit({
-            commands: [{ ExerciseCommand: command }],
+            commands: [command],
             disclosedContracts,
             synchronizerId,
             actAs: [provider],

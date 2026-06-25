@@ -94,6 +94,48 @@ describe('PreapprovalNamespace', () => {
         ])
     })
 
+    it('should create renew command when the preapproval contract exists', async () => {
+        const expiresAt = new Date('2026-12-31')
+        const mockStatus = {
+            contractId: 'cid-old',
+            templateId: 'tid-old',
+            dso: 'dso::123',
+            expiresAt: new Date('2026-06-15T00:00:00.000Z'),
+        }
+        vi.spyOn(preapprovalNamespace, 'fetchStatus').mockResolvedValue(
+            mockStatus as any
+        )
+        mockConfig.amuletService.renewTransferPreapproval.mockResolvedValue([
+            'renew-exercise',
+            ['dc-renew'],
+        ])
+
+        const result = await preapprovalNamespace.command.renew({
+            parties: {
+                receiver: 'rec::123',
+                provider: 'sender::123',
+            },
+            expiresAt: expiresAt,
+            inputUtxos: ['utxo-1'],
+            synchronizerId: 'sync::123',
+        })
+
+        expect(
+            mockConfig.amuletService.renewTransferPreapproval
+        ).toHaveBeenCalledWith(
+            'cid-old',
+            'tid-old',
+            'sender::123',
+            'sync::123',
+            expiresAt,
+            ['utxo-1']
+        )
+        expect(result).toStrictEqual([
+            { ExerciseCommand: 'renew-exercise' },
+            ['dc-renew'],
+        ])
+    })
+
     it('renew preapproval if the proper contracts exist', async () => {
         const expiresAt = new Date('2026-12-31')
         const mockStatus = {

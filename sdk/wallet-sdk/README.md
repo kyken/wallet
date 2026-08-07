@@ -52,27 +52,4 @@ const sdk = await SDK.create({
 const sdk = await SDK.create(provider)
 ```
 
-### External Party signing algorithms
-
-Ed25519 remains the default. Configure `secp256k1` once when creating the SDK
-to use Canton secp256k1 keys and signatures for key generation, External Party
-onboarding, and transaction submission:
-
-```ts
-const sdk = await SDK.create({
-    auth,
-    ledgerClientUrl: 'http:ledgerClientHost:port',
-    signingAlgorithm: 'secp256k1',
-})
-
-const keyPair = sdk.keys.generate()
-const signedParty = sdk.party.external
-    .create(keyPair.publicKey)
-    .sign(keyPair.privateKey)
-```
-
-The same `signingAlgorithm` option is available on `SDK.createOffline`. The
-algorithm is selected at SDK-instance creation time and is not inferred from
-the Canton party ID.
-
 For more guides, examples and code snippets, see the [docs](https://docs.digitalasset.com/integrate/devnet/index.html).

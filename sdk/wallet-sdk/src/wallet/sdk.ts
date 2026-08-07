@@ -29,6 +29,7 @@ import {
     type LedgerCommonSchemas,
 } from '@canton-network/core-ledger-client-types'
 import { AllowedLogAdapters } from './logger/types.js'
+import type { SigningAlgorithm } from '@canton-network/core-signing-lib'
 import { DappLedgerRpc } from '@canton-network/core-provider-dapp'
 import { SDKContext } from './index.js'
 import { ValidatorInternalClient } from '@canton-network/core-splice-client'
@@ -48,6 +49,7 @@ export {
     signTransactionHash,
     getPublicKeyFromPrivate,
 } from '@canton-network/core-signing-lib'
+export type { SigningAlgorithm } from '@canton-network/core-signing-lib'
 export type LedgerTypes = LedgerCommonSchemas
 
 export * from './init/index.js'
@@ -132,6 +134,7 @@ export class SDK {
             logger,
             error,
             defaultSynchronizerId,
+            signingAlgorithm: options.signingAlgorithm ?? 'ed25519',
         }
 
         const config = {} as Pick<
@@ -157,10 +160,15 @@ export class SDK {
      */
     static createOffline(options?: {
         logAdapter?: AllowedLogAdapters
+        signingAlgorithm?: SigningAlgorithm
     }): OfflineSDKInterface {
         const logger = new SDKLogger(options?.logAdapter ?? 'pino')
         const error = new SDKErrorHandler(logger)
-        return new OfflineInitializedSDK({ logger, error })
+        return new OfflineInitializedSDK({
+            logger,
+            error,
+            signingAlgorithm: options?.signingAlgorithm ?? 'ed25519',
+        })
     }
 }
 

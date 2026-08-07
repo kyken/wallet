@@ -9,9 +9,13 @@ import {
     SignedPartyCreationService,
 } from '.'
 import { LedgerCommonSchemas } from '@canton-network/core-ledger-client-types'
-import { signTransactionHash } from '@canton-network/core-signing-lib'
+import {
+    createKeyPair,
+    signTransactionHashWithAlgorithm,
+} from '@canton-network/core-signing-lib'
 
 const { ctx, ledgerProvider } = mock
+const ed25519PublicKey = 'PJCUPZmCN134OST9ofcs2BGLJ/4ju8BT/xiZjzSO6t4='
 
 vi.mock('@canton-network/core-provider-ledger', async (importOriginal) => {
     const actual =
@@ -35,7 +39,7 @@ vi.mock('@canton-network/core-signing-lib', async (importOriginal) => {
         >()
     return {
         ...actual,
-        signTransactionHash: vi.fn().mockReturnValue('hash'),
+        signTransactionHashWithAlgorithm: vi.fn().mockReturnValue('hash'),
     }
 })
 
@@ -268,7 +272,7 @@ describe('Party namespace', () => {
         let preparedParty: PreparedPartyCreationService
         let signedParty: SignedPartyCreationService
         let signTransactionHashSpy: ReturnType<
-            typeof vi.mocked<typeof signTransactionHash>
+            typeof vi.mocked<typeof signTransactionHashWithAlgorithm>
         >
 
         const partyTransaction = {
@@ -283,7 +287,7 @@ describe('Party namespace', () => {
             vi.restoreAllMocks()
 
             signTransactionHashSpy = vi
-                .mocked(signTransactionHash)
+                .mocked(signTransactionHashWithAlgorithm)
                 .mockReturnValue('signature')
 
             preparedParty = new PreparedPartyCreationService(
@@ -310,7 +314,7 @@ describe('Party namespace', () => {
                 } satisfies LedgerCommonSchemas['GenerateExternalPartyTopologyResponse'])
 
                 const partyCreationService = party.external.create(
-                    'publicKey',
+                    ed25519PublicKey,
                     {
                         partyHint: 'partyHint',
                         synchronizerId: 'syncId',
@@ -332,7 +336,7 @@ describe('Party namespace', () => {
                             partyHint: 'partyHint',
                             publicKey: {
                                 format: 'CRYPTO_KEY_FORMAT_RAW',
-                                keyData: 'publicKey',
+                                keyData: ed25519PublicKey,
                                 keySpec: 'SIGNING_KEY_SPEC_EC_CURVE25519',
                             },
                             localParticipantObservationOnly: false,
@@ -381,7 +385,7 @@ describe('Party namespace', () => {
                     ],
                 })
 
-                party.external.create('publicKey', {
+                party.external.create(ed25519PublicKey, {
                     observingParticipantEndpoints,
                     confirmingParticipantEndpoints,
                 })
@@ -409,6 +413,50 @@ describe('Party namespace', () => {
                     },
                 })
             })
+
+            it('should use the configured secp256k1 Canton public-key profile', async () => {
+                const secpParty = new PartyNamespace({
+                    ...ctx,
+                    signingAlgorithm: 'secp256k1',
+                })
+                const secp256k1PublicKey = createKeyPair('secp256k1').publicKey
+
+                ledgerProvider.request.mockResolvedValueOnce({
+                    partyId: 'partyId',
+                    publicKeyFingerprint: 'string',
+                    topologyTransactions: [],
+                    multiHash: 'hash',
+                })
+
+                await secpParty.external
+                    .create(secp256k1PublicKey, { synchronizerId: 'syncId' })
+                    .topology()
+
+                expect(ledgerProvider.request).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        params: expect.objectContaining({
+                            body: expect.objectContaining({
+                                publicKey: {
+                                    format: 'CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO',
+                                    keyData: secp256k1PublicKey,
+                                    keySpec: 'SIGNING_KEY_SPEC_EC_SECP256K1',
+                                },
+                            }),
+                        }),
+                    })
+                )
+            })
+
+            it('should reject a public key that does not match the configured profile', () => {
+                const secpParty = new PartyNamespace({
+                    ...ctx,
+                    signingAlgorithm: 'secp256k1',
+                })
+
+                expect(() =>
+                    secpParty.external.create(ed25519PublicKey)
+                ).toThrow(/Canton DER X.509 SubjectPublicKeyInfo/)
+            })
         })
 
         describe('external.create.sign', () => {
@@ -419,7 +467,8 @@ describe('Party namespace', () => {
 
                 expect(signTransactionHashSpy).toHaveBeenCalledExactlyOnceWith(
                     partyTransaction.multiHash,
-                    'privateKey'
+                    'privateKey',
+                    'ed25519'
                 )
             })
         })
@@ -480,6 +529,40 @@ describe('Party namespace', () => {
                 })
 
                 expect(result).toEqual(partyTransaction)
+            })
+
+            it('should allocate a secp256k1 external party with DER signature metadata', async () => {
+                const secpSignedParty = new SignedPartyCreationService(
+                    {
+                        ...ctx,
+                        signingAlgorithm: 'secp256k1',
+                    },
+                    Promise.resolve({
+                        party: partyTransaction,
+                        signature: 'secpSignature',
+                    })
+                )
+
+                ledgerProvider.request
+                    .mockResolvedValueOnce({ partyDetails: [] })
+                    .mockResolvedValueOnce({ partyId: 'partyId' })
+
+                await secpSignedParty.execute({ grantUserRights: false })
+
+                expect(ledgerProvider.request).toHaveBeenNthCalledWith(2, {
+                    method: 'ledgerApi',
+                    params: expect.objectContaining({
+                        body: expect.objectContaining({
+                            multiHashSignatures: [
+                                expect.objectContaining({
+                                    format: 'SIGNATURE_FORMAT_DER',
+                                    signingAlgorithmSpec:
+                                        'SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256',
+                                }),
+                            ],
+                        }),
+                    }),
+                })
             })
 
             it('should execute a new party into the ledger', async () => {

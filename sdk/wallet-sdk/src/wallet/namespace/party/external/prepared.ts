@@ -4,9 +4,10 @@
 import { GenerateTransactionResponse } from './types.js'
 import {
     PrivateKey,
-    signTransactionHash,
+    signTransactionHashWithAlgorithm,
 } from '@canton-network/core-signing-lib'
 import { SDKContext } from '../../../sdk.js'
+import { resolveSigningAlgorithm } from '../../../init/types/context.js'
 import { SignedPartyCreationService } from './signed.js'
 import { CreatePartyOptions } from './types.js'
 
@@ -30,9 +31,10 @@ export class PreparedPartyCreationService {
         const signedPartyPromise = this.partyCreationPromise.then(
             (transactionResponse) => ({
                 party: transactionResponse,
-                signature: signTransactionHash(
+                signature: signTransactionHashWithAlgorithm(
                     transactionResponse.multiHash,
-                    privateKey
+                    privateKey,
+                    resolveSigningAlgorithm(this.ctx.signingAlgorithm)
                 ),
             })
         )

@@ -1,9 +1,17 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PublicKey } from '@canton-network/core-signing-lib'
+import {
+    PublicKey,
+    getCantonSigningProfile,
+    validatePublicKey,
+} from '@canton-network/core-signing-lib'
 import { v4 } from 'uuid'
 import { SDKContext } from '../../../sdk.js'
+import {
+    createSigningSubmissionError,
+    resolveSigningAlgorithm,
+} from '../../../init/types/context.js'
 import { ParticipantEndpointConfig } from './types.js'
 import { PreparedPartyCreationService } from './prepared.js'
 import { CreatePartyOptions } from './types.js'
@@ -25,6 +33,11 @@ export class ExternalPartyNamespace {
      * @returns PreparedPartyCreation builder for chaining sign() and execute()
      */
     public create(publicKey: PublicKey, options?: CreatePartyOptions) {
+        const signingAlgorithm = resolveSigningAlgorithm(
+            this.ctx.signingAlgorithm
+        )
+        validatePublicKey(publicKey, signingAlgorithm)
+        const signingProfile = getCantonSigningProfile(signingAlgorithm)
         const partyCreationPromise = Promise.all([
             this.resolveParticipantUids(
                 options?.observingParticipantEndpoints ?? []
@@ -33,40 +46,45 @@ export class ExternalPartyNamespace {
                 options?.confirmingParticipantEndpoints ?? []
             ),
             options?.synchronizerId || this.resolveSynchronizerId(),
-        ]).then(
-            ([
-                observingParticipantUids,
-                otherHostingParticipantUids,
-                synchronizerId,
-            ]) =>
-                this.ctx.ledgerProvider.request<Ops.PostV2PartiesExternalGenerateTopology>(
-                    {
-                        method: 'ledgerApi',
-                        params: {
-                            resource: '/v2/parties/external/generate-topology',
-                            body: {
-                                synchronizer: synchronizerId,
-                                partyHint: options?.partyHint ?? v4(),
-                                publicKey: {
-                                    format: 'CRYPTO_KEY_FORMAT_RAW',
-                                    keyData: publicKey,
-                                    keySpec: 'SIGNING_KEY_SPEC_EC_CURVE25519',
+        ])
+            .then(
+                ([
+                    observingParticipantUids,
+                    otherHostingParticipantUids,
+                    synchronizerId,
+                ]) =>
+                    this.ctx.ledgerProvider.request<Ops.PostV2PartiesExternalGenerateTopology>(
+                        {
+                            method: 'ledgerApi',
+                            params: {
+                                resource:
+                                    '/v2/parties/external/generate-topology',
+                                body: {
+                                    synchronizer: synchronizerId,
+                                    partyHint: options?.partyHint ?? v4(),
+                                    publicKey: {
+                                        format: signingProfile.publicKeyFormat,
+                                        keyData: publicKey,
+                                        keySpec: signingProfile.keySpec,
+                                    },
+                                    localParticipantObservationOnly:
+                                        options?.localParticipantObservationOnly ??
+                                        false,
+                                    confirmationThreshold:
+                                        options?.confirmingThreshold ?? 1,
+                                    otherConfirmingParticipantUids:
+                                        otherHostingParticipantUids,
+                                    observingParticipantUids:
+                                        observingParticipantUids,
                                 },
-                                localParticipantObservationOnly:
-                                    options?.localParticipantObservationOnly ??
-                                    false,
-                                confirmationThreshold:
-                                    options?.confirmingThreshold ?? 1,
-                                otherConfirmingParticipantUids:
-                                    otherHostingParticipantUids,
-                                observingParticipantUids:
-                                    observingParticipantUids,
+                                requestMethod: 'post',
                             },
-                            requestMethod: 'post',
-                        },
-                    }
-                )
-        )
+                        }
+                    )
+            )
+            .catch((error) => {
+                throw createSigningSubmissionError(error, signingAlgorithm)
+            })
 
         this.logger.debug('Prepared party creation successfully.')
         return new PreparedPartyCreationService(

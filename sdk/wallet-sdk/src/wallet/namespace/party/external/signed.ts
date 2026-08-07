@@ -3,12 +3,17 @@
 
 import { SDKContext } from '../../../sdk.js'
 import {
+    createSigningSubmissionError,
+    resolveSigningAlgorithm,
+} from '../../../init/types/context.js'
+import {
     CreatePartyOptions,
     ExecuteOptions,
     ParticipantEndpointConfig,
     MultiHashSignatures,
     OnboardingTransactions,
 } from './types.js'
+import { getCantonSigningProfile } from '@canton-network/core-signing-lib'
 
 import { PartyId } from '@canton-network/core-types'
 import {
@@ -143,6 +148,10 @@ export class SignedPartyCreationService {
             defaultLedgerProvider,
         } = options
         const ledgerProvider = defaultLedgerProvider ?? this.ctx.ledgerProvider
+        const signingAlgorithm = resolveSigningAlgorithm(
+            this.ctx.signingAlgorithm
+        )
+        const signingProfile = getCantonSigningProfile(signingAlgorithm)
         try {
             const synchronizerId = this.ctx.defaultSynchronizerId
 
@@ -154,10 +163,11 @@ export class SignedPartyCreationService {
                 })),
                 [
                     {
-                        format: 'SIGNATURE_FORMAT_CONCAT',
+                        format: signingProfile.signatureFormat,
                         signature,
                         signedBy: party.publicKeyFingerprint,
-                        signingAlgorithmSpec: 'SIGNING_ALGORITHM_SPEC_ED25519',
+                        signingAlgorithmSpec:
+                            signingProfile.signingAlgorithmSpec,
                     },
                 ]
             )
@@ -180,7 +190,7 @@ export class SignedPartyCreationService {
                     await new Promise((resolve) => setTimeout(resolve, 1000))
                 }
             } else {
-                throw e
+                throw createSigningSubmissionError(e, signingAlgorithm)
             }
         }
     }

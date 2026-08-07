@@ -17,6 +17,8 @@ import { AmuletNamespace } from '../../namespace/amulet'
 import { AssetNamespace } from '../../namespace/asset'
 import { EventsNamespace } from '../../namespace/events'
 import { TokenNamespace } from '../../namespace/token'
+import { verifySignedTxHash } from '@canton-network/core-signing-lib'
+import { SDK } from '../../sdk.js'
 
 const {
     ValidatorInternalClient,
@@ -86,6 +88,37 @@ describe('init SDK', () => {
             expect(sdk.keys).toBeInstanceOf(KeysNamespace)
             expect(sdk.utils).toBeInstanceOf(SDKUtilsNamespace)
         })
+
+        it('should propagate the configured signing algorithm to key generation', () => {
+            const configuredSdk = new OfflineInitializedSDK({
+                ...mock.offlineCtx,
+                signingAlgorithm: 'secp256k1',
+            })
+            const keyPair = configuredSdk.keys.generate()
+            const signature = configuredSdk.keys.signTransactionHash(
+                'iL6weD45T2E=',
+                keyPair.privateKey
+            )
+
+            expect(
+                verifySignedTxHash(
+                    'iL6weD45T2E=',
+                    keyPair.publicKey,
+                    signature,
+                    'secp256k1'
+                )
+            ).toBe(true)
+        })
+
+        it('should accept the signing algorithm on SDK.createOffline', () => {
+            const configuredSdk = SDK.createOffline({
+                signingAlgorithm: 'secp256k1',
+            })
+            const keyPair = configuredSdk.keys.generate()
+
+            expect(keyPair.privateKey).toHaveLength(44)
+            expect(keyPair.publicKey).not.toHaveLength(44)
+        })
     })
 
     describe('basic', () => {
@@ -108,6 +141,23 @@ describe('init SDK', () => {
             expect(sdk.party).toBeInstanceOf(PartyNamespace)
             expect(sdk.user).toBeInstanceOf(UserNamespace)
             expect(sdk.registerPlugins).toBeDefined()
+        })
+
+        it('should propagate the signing algorithm through SDK.create', async () => {
+            mock.ledgerProvider.request
+                .mockResolvedValueOnce({ user: { id: 'test-user-id' } })
+                .mockResolvedValueOnce({
+                    connectedSynchronizers: [{ synchronizerId: 'sync-1' }],
+                })
+
+            const configuredSdk = await SDK.create({
+                ledgerProvider: mock.ledgerProvider as never,
+                signingAlgorithm: 'secp256k1',
+            })
+            const keyPair = configuredSdk.keys.generate()
+
+            expect(keyPair.privateKey).toHaveLength(44)
+            expect(keyPair.publicKey).not.toHaveLength(44)
         })
     })
 

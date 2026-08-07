@@ -5,18 +5,35 @@ import {
     createKeyPair,
     KeyPair,
     PublicKey,
+    PrivateKey,
+    SigningAlgorithm,
+    signTransactionHashWithAlgorithm,
 } from '@canton-network/core-signing-lib'
 import { base64ToBytes, bytesToHex } from '../utils/encoding'
 
 export class KeysNamespace {
-    constructor() {}
+    constructor(
+        private readonly signingAlgorithm: SigningAlgorithm = 'ed25519'
+    ) {}
 
     /**
      *
      * @returns A base64 encoded public/private key pair
      */
     public generate(): KeyPair {
-        return createKeyPair()
+        return createKeyPair(this.signingAlgorithm)
+    }
+
+    /**
+     * Signs a Canton transaction or topology hash with this SDK instance's
+     * configured signing algorithm.
+     */
+    public signTransactionHash(txHash: string, privateKey: PrivateKey): string {
+        return signTransactionHashWithAlgorithm(
+            txHash,
+            privateKey,
+            this.signingAlgorithm
+        )
     }
 
     /**

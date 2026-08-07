@@ -1652,6 +1652,8 @@ __metadata:
   resolution: "@canton-network/core-signing-lib@workspace:core/signing-lib"
   dependencies:
     "@canton-network/core-wallet-auth": "workspace:^"
+    "@noble/curves": "npm:^1.9.7"
+    "@noble/hashes": "npm:^1.8.0"
     "@types/fs-extra": "npm:^11.0.4"
     "@types/lodash": "npm:^4.17.24"
     "@types/node": "npm:^25.9.4"
@@ -4958,7 +4960,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:1.9.7, @noble/curves@npm:~1.9.0":
+"@noble/curves@npm:1.9.7, @noble/curves@npm:^1.9.7, @noble/curves@npm:~1.9.0":
   version: 1.9.7
   resolution: "@noble/curves@npm:1.9.7"
   dependencies:

@@ -10,6 +10,7 @@ import { UserNamespace } from '../namespace/user/index.js'
 import { TokenNamespace } from '../namespace/token/index.js'
 import { AssetNamespace } from '../namespace/asset/index.js'
 import { OfflineSDKContext, SDKContext, getValidatorParty } from '../sdk.js'
+import { resolveSigningAlgorithm } from './types/context.js'
 import { SDKUtilsNamespace } from '../namespace/utils/index.js'
 import {
     AmuletConfig,
@@ -146,13 +147,16 @@ const createNamespace: {
 export class InitializedSDK<
     CurrentlyExtended extends keyof ExtendedSDKOptions = never,
 > implements BasicSDKInterface<CurrentlyExtended> {
-    public readonly keys = new KeysNamespace()
+    public readonly keys: KeysNamespace
     public readonly ledger: LedgerNamespace
     public readonly party: PartyNamespace
     public readonly user: UserNamespace
     public readonly utils: SDKUtilsNamespace
 
     constructor(protected ctx: SDKContext) {
+        this.keys = new KeysNamespace(
+            resolveSigningAlgorithm(ctx.signingAlgorithm)
+        )
         this.ledger = new LedgerNamespace(ctx)
         this.party = new PartyNamespace(ctx)
         this.user = new UserNamespace(ctx)
@@ -214,8 +218,11 @@ export class InitializedSDK<
 
 export class OfflineInitializedSDK implements OfflineSDKInterface {
     public readonly utils: SDKUtilsNamespace
-    public readonly keys = new KeysNamespace()
+    public readonly keys: KeysNamespace
     constructor(protected ctx: OfflineSDKContext) {
+        this.keys = new KeysNamespace(
+            resolveSigningAlgorithm(ctx.signingAlgorithm)
+        )
         this.utils = new SDKUtilsNamespace(ctx)
     }
 }

@@ -25,6 +25,25 @@ describe('Keys namespace', () => {
         expect(verify).toBe(true)
     })
 
+    it('should generate and sign with the configured secp256k1 profile', () => {
+        const keys = new KeysNamespace('secp256k1')
+        const keyPair = keys.generate()
+
+        const signature = keys.signTransactionHash(
+            'iL6weD45T2E=',
+            keyPair.privateKey
+        )
+
+        expect(
+            verifySignedTxHash(
+                'iL6weD45T2E=',
+                keyPair.publicKey,
+                signature,
+                'secp256k1'
+            )
+        ).toBe(true)
+    })
+
     it('should calculate the fingerprint correctly from a known base64 encoded public key', async () => {
         const keys = new KeysNamespace()
         const publicKeyWithKnownFingerprint =

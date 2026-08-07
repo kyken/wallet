@@ -177,4 +177,58 @@ describe('Ledger Namespace', () => {
 
         expect(result).toEqual(expectedResult)
     })
+
+    it('should submit secp256k1 signatures with Canton DER metadata', async () => {
+        ledger = new LedgerNamespace({
+            ...ctx,
+            signingAlgorithm: 'secp256k1',
+        })
+        ledgerProvider.request.mockResolvedValueOnce({
+            updateId: 'updateId',
+            completionOffset: 90,
+        })
+
+        await ledger.execute(new MockSignedTransaction(ctx), {
+            partyId: 'party::123',
+        })
+
+        const request = ledgerProvider.request.mock.calls.at(-1)?.[0] as {
+            params: {
+                body: {
+                    partySignatures: {
+                        signatures: Array<{
+                            signatures: Array<{
+                                format: string
+                                signingAlgorithmSpec: string
+                            }>
+                        }>
+                    }
+                }
+            }
+        }
+        expect(
+            request.params.body.partySignatures.signatures[0].signatures[0]
+        ).toMatchObject({
+            format: 'SIGNATURE_FORMAT_DER',
+            signingAlgorithmSpec: 'SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256',
+        })
+    })
+
+    it('should add the signing algorithm to Canton rejection errors', async () => {
+        ledger = new LedgerNamespace({
+            ...ctx,
+            signingAlgorithm: 'secp256k1',
+        })
+        ledgerProvider.request.mockRejectedValueOnce(
+            new Error('unsupported key specification')
+        )
+
+        await expect(
+            ledger.execute(new MockSignedTransaction(ctx), {
+                partyId: 'party::123',
+            })
+        ).rejects.toThrow(
+            'Canton rejected secp256k1 signing request: unsupported key specification'
+        )
+    })
 })

@@ -3,10 +3,11 @@
 
 import {
     PrivateKey,
-    signTransactionHash,
+    signTransactionHashWithAlgorithm,
 } from '@canton-network/core-signing-lib'
 import { SignedTransaction } from './signed.js'
 import type { SDKContext } from '../../init/types/context.js'
+import { resolveSigningAlgorithm } from '../../init/types/context.js'
 import { Ops } from '@canton-network/core-provider-ledger'
 import { decodePreparedTransaction } from '@canton-network/core-tx-visualizer'
 import { LedgerNamespace } from '../ledger/index.js'
@@ -23,9 +24,10 @@ export class PreparedTransaction {
     sign(privateKey: PrivateKey): SignedTransaction {
         const signedPromise = this.preparedPromise.then((response) => ({
             response,
-            signature: signTransactionHash(
+            signature: signTransactionHashWithAlgorithm(
                 response.preparedTransactionHash,
-                privateKey
+                privateKey,
+                resolveSigningAlgorithm(this.ctx.signingAlgorithm)
             ),
         }))
         return new SignedTransaction(this.ctx, signedPromise, this._execute) // pass execute function for online signing workflows

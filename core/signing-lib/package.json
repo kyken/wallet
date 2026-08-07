@@ -25,6 +25,8 @@
     },
     "dependencies": {
         "@canton-network/core-wallet-auth": "workspace:^",
+        "@noble/curves": "^1.9.7",
+        "@noble/hashes": "^1.8.0",
         "fs-extra": "^11.3.6",
         "lodash": "^4.18.1",
         "tweetnacl": "^1.0.3",

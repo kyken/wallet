@@ -20,6 +20,7 @@ import {
 import { Provider } from '@canton-network/core-splice-provider'
 import { LedgerTypes } from '@canton-network/core-ledger-client-types'
 import { SDKPlugin, SDKPluginContext } from '../plugin.js'
+import type { SigningAlgorithm } from '@canton-network/core-signing-lib'
 
 // SDK OPTIONS
 
@@ -35,6 +36,7 @@ export type BasicSDKOptions<L extends LedgerTypes> = Readonly<
     {
         websocketUrl?: URL | string // default to same host as ledgerClientUrl with ws protocol
         logAdapter?: AllowedLogAdapters
+        signingAlgorithm?: SigningAlgorithm
     } & (
         | { auth: TokenProviderConfig; ledgerClientUrl: URL | string }
         | { ledgerProvider: Provider<L> }

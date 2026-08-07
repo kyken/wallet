@@ -3,6 +3,10 @@
 
 import type { LedgerCommonSchemas } from '@canton-network/core-ledger-client-types'
 import type { SDKContext } from '../../init/types/context.js'
+import {
+    createSigningSubmissionError,
+    resolveSigningAlgorithm,
+} from '../../init/types/context.js'
 import { v4 } from 'uuid'
 import { PrepareOptions, ExecuteOptions, AcsRequestOptions } from './types.js'
 import { PreparedTransaction } from '../transactions/prepared.js'
@@ -11,6 +15,7 @@ import { Ops } from '@canton-network/core-provider-ledger'
 import { InternalLedgerNamespace } from './internal/index.js'
 import { ACSReader } from '@canton-network/core-acs-reader'
 import { DarNamespace } from './dar/index.js'
+import { getCantonSigningProfile } from '@canton-network/core-signing-lib'
 
 export class LedgerNamespace {
     public readonly dar: DarNamespace
@@ -95,6 +100,10 @@ export class LedgerNamespace {
         const replaceableSubmissionId = submissionId ?? v4()
 
         const fingerprint = partyId.split('::')[1]
+        const signingAlgorithm = resolveSigningAlgorithm(
+            this.sdkContext.signingAlgorithm
+        )
+        const signingProfile = getCantonSigningProfile(signingAlgorithm)
 
         const request = {
             userId: this.sdkContext.userId,
@@ -113,9 +122,9 @@ export class LedgerNamespace {
                             {
                                 signature: await signed.signature(),
                                 signedBy: fingerprint,
-                                format: 'SIGNATURE_FORMAT_CONCAT',
+                                format: signingProfile.signatureFormat,
                                 signingAlgorithmSpec:
-                                    'SIGNING_ALGORITHM_SPEC_ED25519',
+                                    signingProfile.signingAlgorithmSpec,
                             },
                         ],
                     },
@@ -128,16 +137,20 @@ export class LedgerNamespace {
             'Submitting transaction to ledger with request'
         )
 
-        return this.sdkContext.ledgerProvider.request<Ops.PostV2InteractiveSubmissionExecuteAndWait>(
-            {
-                method: 'ledgerApi',
-                params: {
-                    resource: '/v2/interactive-submission/executeAndWait',
-                    body: request,
-                    requestMethod: 'post',
-                },
-            }
-        )
+        try {
+            return await this.sdkContext.ledgerProvider.request<Ops.PostV2InteractiveSubmissionExecuteAndWait>(
+                {
+                    method: 'ledgerApi',
+                    params: {
+                        resource: '/v2/interactive-submission/executeAndWait',
+                        body: request,
+                        requestMethod: 'post',
+                    },
+                }
+            )
+        } catch (error) {
+            throw createSigningSubmissionError(error, signingAlgorithm)
+        }
     }
 
     /**

@@ -42,11 +42,13 @@ export const ctx: SDKContext = {
     logger: mockLogger,
     error: mockErrorHandler,
     defaultSynchronizerId: '',
+    signingAlgorithm: 'ed25519',
 }
 
 export const offlineCtx: OfflineSDKContext = {
     logger: mockLogger,
     error: mockErrorHandler,
+    signingAlgorithm: 'ed25519',
 }
 
 export const tokenProviderConfig: TokenProviderConfig = {

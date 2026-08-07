@@ -21,6 +21,7 @@ const ctx: SDKContext = {
     logger: new SDKLogger('console'),
     error: new SDKErrorHandler(new SDKLogger('console')),
     defaultSynchronizerId: 'synchronizerId',
+    signingAlgorithm: 'ed25519',
 }
 
 const amuletAsset = {

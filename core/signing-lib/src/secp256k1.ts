@@ -34,7 +34,7 @@ const toCantonPublicKey = (publicKey: Uint8Array) => {
     return concatBytes(PUBLIC_KEY_PREFIX, publicKey)
 }
 
-const fromCantonPublicKey = (publicKey: Uint8Array) => {
+const parseCantonPublicKey = (publicKey: Uint8Array) => {
     if (
         publicKey.length !== PUBLIC_KEY_PREFIX.length + PUBLIC_KEY_LENGTH ||
         !PUBLIC_KEY_PREFIX.every((value, index) => value === publicKey[index])
@@ -69,13 +69,8 @@ export const createKeyPair = () => {
     }
 }
 
-export const getPublicKeyFromPrivate = (privateKey: Uint8Array) => {
-    validatePrivateKey(privateKey)
-    return toCantonPublicKey(secp256k1.getPublicKey(privateKey, false))
-}
-
 export const validatePublicKey = (publicKey: Uint8Array) => {
-    fromCantonPublicKey(publicKey)
+    parseCantonPublicKey(publicKey)
 }
 
 export const sign = (message: Uint8Array, privateKey: Uint8Array) => {
@@ -90,4 +85,8 @@ export const verify = (
     publicKey: Uint8Array,
     signature: Uint8Array
 ) =>
-    secp256k1.verify(signature, sha256(message), fromCantonPublicKey(publicKey))
+    secp256k1.verify(
+        signature,
+        sha256(message),
+        parseCantonPublicKey(publicKey)
+    )

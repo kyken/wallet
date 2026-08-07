@@ -24,12 +24,6 @@ describe('getPublicKeyFromPrivate', () => {
 
         expect(getPublicKeyFromPrivate(privateKey)).toBe(publicKey)
     })
-
-    it('derives a Canton-compatible secp256k1 public key', () => {
-        const { publicKey, privateKey } = createKeyPair('secp256k1')
-
-        expect(getPublicKeyFromPrivate(privateKey, 'secp256k1')).toBe(publicKey)
-    })
 })
 
 describe('signTransactionHash', () => {

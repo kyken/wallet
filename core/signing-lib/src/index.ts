@@ -117,7 +117,7 @@ const decodeEd25519PrivateKey = (privateKey: string) => {
     return decodedKey
 }
 
-const signEd25519TransactionHash = (
+export const signTransactionHash = (
     txHash: string,
     privateKey: string
 ): string => {
@@ -126,14 +126,6 @@ const signEd25519TransactionHash = (
 
     return naclUtil.encodeBase64(nacl.sign.detached(decodedHash, decodedKey))
 }
-
-/**
- * Signs a Canton hash using the legacy Ed25519-compatible representation.
- */
-export const signTransactionHash = (
-    txHash: string,
-    privateKey: string
-): string => signEd25519TransactionHash(txHash, privateKey)
 
 /** @internal
  * Signs a Canton hash using an explicitly selected low-level profile.
@@ -146,7 +138,7 @@ export const signTransactionHashWithAlgorithm = (
     signingAlgorithm: SigningAlgorithm
 ): string => {
     if (signingAlgorithm === 'ed25519') {
-        return signEd25519TransactionHash(txHash, privateKey)
+        return signTransactionHash(txHash, privateKey)
     }
 
     getCantonSigningProfile(signingAlgorithm)
@@ -164,19 +156,7 @@ export const signMessage = (message: string, privateKey: string): string => {
     return naclUtil.encodeBase64(nacl.sign.detached(msgBytes, decodedKey))
 }
 
-export const getPublicKeyFromPrivate = (
-    privateKeyBase64: string,
-    signingAlgorithm: SigningAlgorithm = 'ed25519'
-): string => {
-    if (signingAlgorithm === 'secp256k1') {
-        return naclUtil.encodeBase64(
-            secp256k1Signing.getPublicKeyFromPrivate(
-                decodePrivateKey(privateKeyBase64, 'secp256k1')
-            )
-        )
-    }
-
-    getCantonSigningProfile(signingAlgorithm)
+export const getPublicKeyFromPrivate = (privateKeyBase64: string): string => {
     const secretKey = decodeEd25519PrivateKey(privateKeyBase64)
     const keyPair = nacl.sign.keyPair.fromSecretKey(secretKey)
     return naclUtil.encodeBase64(keyPair.publicKey)

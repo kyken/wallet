@@ -19,6 +19,7 @@ import { EventsNamespace } from '../../namespace/events'
 import { TokenNamespace } from '../../namespace/token'
 import { verifySignedTxHash } from '@canton-network/core-signing-lib'
 import { SDK } from '../../sdk.js'
+import { base64ToBytes } from '../../namespace/utils/encoding.js'
 
 const {
     ValidatorInternalClient,
@@ -100,6 +101,7 @@ describe('init SDK', () => {
                 keyPair.privateKey
             )
 
+            expect(base64ToBytes(signature)[0]).toBe(0x30)
             expect(
                 verifySignedTxHash(
                     'iL6weD45T2E=',

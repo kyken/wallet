@@ -7,6 +7,7 @@ import {
     signTransactionHash,
     verifySignedTxHash,
 } from '@canton-network/core-signing-lib'
+import { base64ToBytes } from '../utils/encoding.js'
 
 describe('Keys namespace', () => {
     it('should generate a valid keypair to sign transactions with', () => {
@@ -34,6 +35,7 @@ describe('Keys namespace', () => {
             keyPair.privateKey
         )
 
+        expect(base64ToBytes(signature)[0]).toBe(0x30)
         expect(
             verifySignedTxHash(
                 'iL6weD45T2E=',
